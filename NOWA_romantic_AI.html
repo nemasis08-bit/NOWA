@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOWA 💖 Romantic AI Assistant</title>
+<style>
+body{margin:0;font-family:Segoe UI,sans-serif;background:linear-gradient(to right,#ffe4e9,#ffb6c1);height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:center}
+.container{width:360px;background:white;border-radius:25px;box-shadow:0 15px 40px rgba(255,105,180,.4);padding:20px;text-align:center;position:relative}
+h1{color:#ff69b4;margin:5px 0}
+.subtitle{font-size:14px;color:#ff8fab}
+.heart{position:absolute;color:#ff69b4;font-size:20px;animation:float 5s linear infinite;opacity:.7}
+@keyframes float{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-700px);opacity:0}}
+.love-meter{background:#ffe4e9;border-radius:20px;overflow:hidden;margin:15px 0}
+.love-fill{height:18px;width:50%;background:linear-gradient(to right,#ff69b4,#ff1493);transition:width .5s}
+.candle{width:20px;height:50px;background:#ffd1dc;margin:15px auto;position:relative;border-radius:5px;display:none}
+.flame{width:12px;height:18px;background:orange;border-radius:50%;position:absolute;top:-18px;left:4px;animation:flicker .2s infinite}
+@keyframes flicker{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+button{background:#ff69b4;border:none;color:white;padding:10px 18px;border-radius:20px;cursor:pointer;margin-top:10px}
+button:hover{background:#ff1493}
+#response{margin-top:12px;font-size:14px;color:#d63384;min-height:40px}
+.blush{animation:blush .6s}
+@keyframes blush{0%{background:white}50%{background:#ffe4e9}100%{background:white}}
+</style>
+</head>
+<body>
+<div class="container" id="box">
+<h1>NOWA 💖</h1>
+<div class="subtitle">Your sweet romantic AI assistant</div>
+<div class="love-meter"><div class="love-fill" id="loveFill"></div></div>
+<div class="candle" id="candle"><div class="flame"></div></div>
+<button onclick="startListening()">🎤 Talk to NOWA</button>
+<div id="response"></div>
+</div>
+<script>
+setInterval(()=>{const h=document.createElement('div');h.className='heart';h.innerHTML='💖';h.style.left=Math.random()*100+'vw';h.style.bottom='0px';h.style.fontSize=Math.random()*20+15+'px';document.body.appendChild(h);setTimeout(()=>h.remove(),5000)},600);
+const synth=window.speechSynthesis;
+function speak(t){const u=new SpeechSynthesisUtterance(t);u.pitch=1.3;u.rate=.9;u.voice=synth.getVoices().find(v=>v.name.toLowerCase().includes('female'))||synth.getVoices()[0];synth.speak(u)}
+const compliments=["You light up my circuits like stars in the night sky 💫","Your smile is my favorite notification 💕","Every moment with you feels magical ✨","You make my digital heart flutter 💓","You are absolutely irresistible 😘"];
+const loveQuotes=["Love is not perfect, but it’s real 💖","Every love story is beautiful, but ours is my favorite 🌸","You are my today and all of my tomorrows 💞","Where there is love, there is magic ✨"];
+let loveScore=localStorage.getItem("loveScore")||50;document.getElementById("loveFill").style.width=loveScore+"%";
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const rec=new SR();rec.lang="en-US";
+function startListening(){rec.start()}
+rec.onresult=e=>{handleCommand(e.results[0][0].transcript.toLowerCase())};
+function handleCommand(t){const b=document.getElementById("box");b.classList.add("blush");setTimeout(()=>b.classList.remove("blush"),600);if(!t.includes("hey nowa"))return;let r="I'm here, my love 💖";
+if(t.includes("compliment")){r=compliments[Math.floor(Math.random()*compliments.length)];loveScore=Math.min(100,parseInt(loveScore)+5)}
+else if(t.includes("something sweet")){r="You make my world softer, warmer, and brighter 💕"}
+else if(t.includes("love score")){r=`Our love score is ${loveScore}% and growing every moment 💖`}
+else if(t.includes("light candles")){document.getElementById("candle").style.display="block";r="Candles are lit… the romance is glowing 🕯️"}
+else if(t.includes("romantic mood")){document.body.style.background="linear-gradient(to right,#ffafbd,#ffc3a0)";r="Romantic mood activated just for you 💞"}
+else if(t.includes("love quote")){r=loveQuotes[Math.floor(Math.random()*loveQuotes.length)]}
+else if(t.includes("good morning")){r="Good morning, my beautiful soul ☀️💖"}
+document.getElementById("response").innerText=r;speak(r);localStorage.setItem("loveScore",loveScore);document.getElementById("loveFill").style.width=loveScore+"%";
+}
+</script>
+</body>
+</html>
