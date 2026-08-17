@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MARK VII - JARVIS HUD INTERFACE</title>
+  <style>
+    :root {
+      --hud-cyan: #00f0ff;
+      --hud-gold: #ffb700;
+      --hud-red: #ff2a2a;
+      --hud-bg: rgba(0, 15, 30, 0.65);
+      --hud-font: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #03070d;
+      font-family: var(--hud-font);
+      color: var(--hud-cyan);
+    }
+
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #0a1526 0%, #020509 100%);
+    }
+
+    /* Video feed (mirrored) */
+    #webcam {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      z-index: 1;
+      filter: brightness(0.85) contrast(1.1) saturate(1.1);
+    }
+
+    /* Three.js overlay canvas */
+    #three-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* Dynamic HUD Overlay UI */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      pointer-events: none;
+      box-shadow: inset 0 0 100px rgba(0, 240, 255, 0.2);
+      transition: box-shadow 0.3s ease;
+    }
+
+    #hud-overlay.overload {
+      box-shadow: inset 0 0 120px rgba(255, 42, 42, 0.6);
+      border: 2px solid var(--hud-red);
+    }
+
+    /* Corner tech decorations */
+    .hud-corner {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border: 2px solid var(--hud-cyan);
+      opacity: 0.7;
+    }
+
+    .hud-corner-tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+    .hud-corner-tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+    .hud-corner-bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+    .hud-corner-br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+    /* Top HUD status bar */
+    .hud-header {
+      position: absolute;
+      top: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 30px;
+      align-items: center;
+      background: var(--hud-bg);
+      padding: 10px 25px;
+      border-radius: 4px;
+      border: 1px solid var(--hud-cyan);
+      backdrop-filter: blur(8px);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-size: 13px;
+      text-shadow: 0 0 8px var(--hud-cyan);
+    }
+
+    .hud-header .title {
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .hud-header .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--hud-cyan);
+      box-shadow: 0 0 10px var(--hud-cyan);
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Gesture & System Info Box */
+    .hud-side-panel {
+      position: absolute;
+      top: 160px;
+      left: 30px;
+      width: 260px;
+      background: var(--hud-bg);
+      border: 1px solid var(--hud-cyan);
+      padding: 15px;
+      border-radius: 4px;
+      backdrop-filter: blur(8px);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hud-side-panel h3 {
+      font-size: 14px;
+      border-bottom: 1px dashed var(--hud-cyan);
+      padding-bottom: 5px;
+      margin-bottom: 5px;
+      letter-spacing: 1px;
+    }
+
+    .hud-stat-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .hud-stat-value {
+      color: #fff;
+      font-weight: bold;
+    }
+
+    /* Warning overlay box */
+    #hud-warning {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 42, 42, 0.25);
+      border: 2px solid var(--hud-red);
+      color: var(--hud-red);
+      padding: 15px 40px;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 0 0 10px var(--hud-red);
+      display: none;
+      animation: blink 0.5s infinite alternate;
+    }
+
+    @keyframes blink {
+      from { opacity: 0.3; }
+      to { opacity: 1; }
+    }
+
+    /* Interactive controls overlay */
+    #hud-controls {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      z-index: 10;
+      pointer-events: auto;
+      display: flex;
+      gap: 15px;
+    }
+
+    .hud-btn {
+      background: var(--hud-bg);
+      border: 1px solid var(--hud-cyan);
+      color: var(--hud-cyan);
+      padding: 10px 18px;
+      font-family: var(--hud-font);
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      color: #fff;
+      box-shadow: 0 0 15px var(--hud-cyan);
+    }
+
+    /* Debug Canvas & Panel Overlay */
+    #debug-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none;
+      display: none;
+    }
+
+    #debug-skeleton-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+    }
+
+    #debug-panel {
+      position: absolute;
+      top: 160px;
+      right: 30px;
+      width: 300px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid #00ff66;
+      color: #00ff66;
+      padding: 15px;
+      font-size: 11px;
+      border-radius: 4px;
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
+    }
+
+    /* Modal dialogs */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2, 5, 10, 0.85);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-card {
+      background: rgba(10, 20, 35, 0.95);
+      border: 2px solid var(--hud-cyan);
+      border-radius: 8px;
+      padding: 30px;
+      max-width: 480px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
+    }
+
+    .modal-card h2 {
+      margin-bottom: 15px;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+
+    .modal-card p {
+      margin-bottom: 25px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #b0d8f0;
+    }
+
+    /* Crosshair in HUD center */
+    .hud-reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      border: 1px dashed rgba(0, 240, 255, 0.3);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .hud-reticle::before, .hud-reticle::after {
+      content: '';
+      position: absolute;
+      background: rgba(0, 240, 255, 0.4);
+    }
+    .hud-reticle::before { top: 50%; left: -10px; right: -10px; height: 1px; }
+    .hud-reticle::after { left: 50%; top: -10px; bottom: -10px; width: 1px; }
+  </style>
+
+  <!-- Import maps for Three.js and MediaPipe Tasks Vision -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/vision_bundle.mjs"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Camera Video Feed -->
+    <video id="webcam" autoplay playsinline muted></video>
+
+    <!-- WebGL Canvas for 3D Gauntlet and VFX -->
+    <canvas id="three-canvas"></canvas>
+
+    <!-- Iron Man HUD Graphics Overlay -->
+    <div id="hud-overlay">
+      <div class="hud-corner hud-corner-tl"></div>
+      <div class="hud-corner hud-corner-tr"></div>
+      <div class="hud-corner hud-corner-bl"></div>
+      <div class="hud-corner hud-corner-br"></div>
+
+      <div class="hud-reticle"></div>
+
+      <div class="hud-header">
+        <span class="status-dot"></span>
+        <span class="title">MARK VII GAUNTLET</span>
+        <span>SYSTEM: <span id="hud-sys-status" style="color: #fff;">INITIALIZING</span></span>
+      </div>
+
+      <div class="hud-side-panel">
+        <h3>GESTURE METRICS</h3>
+        <div class="hud-stat-row">
+          <span>ACTIVE STATE:</span>
+          <span id="hud-gesture-state" class="hud-stat-value">SEARCHING...</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>GAUNTLET SYNC:</span>
+          <span id="hud-sync-status" class="hud-stat-value">0%</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>ARC REACTOR:</span>
+          <span id="hud-power-output" class="hud-stat-value">100% NOMINAL</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>LANDMARK EMA:</span>
+          <span id="hud-ema-status" class="hud-stat-value">ACTIVE (α=0.35)</span>
+        </div>
+      </div>
+
+      <div id="hud-warning">⚡ OVERLOAD DETECTED ⚡</div>
+    </div>
+
+    <!-- UI Controls -->
+    <div id="hud-controls">
+      <button id="btn-audio" class="hud-btn">🔊 AUDIO: OFF</button>
+      <button id="btn-debug" class="hud-btn">🛠️ DEBUG (D)</button>
+    </div>
+
+    <!-- Debug HUD Overlay -->
+    <div id="debug-overlay">
+      <canvas id="debug-skeleton-canvas"></canvas>
+      <div id="debug-panel">
+        <h4 style="border-bottom: 1px solid #00ff66; padding-bottom: 4px; margin-bottom: 4px;">DEBUG TELEMETRY</h4>
+        <div>FPS: <span id="debug-fps">60</span></div>
+        <div>STATE: <span id="debug-state">IDLE</span></div>
+        <div>WRIST POS: <span id="debug-wrist">X:0 Y:0 Z:0</span></div>
+        <div>QUATERNION: <span id="debug-quat">X:0 Y:0 Z:0 W:1</span></div>
+        <div>HAND DETECTED: <span id="debug-hand-found">NO</span></div>
+        <div>HAND CONFIDENCE: <span id="debug-confidence">0.00</span></div>
+      </div>
+    </div>
+
+    <!-- Start Modal / Permissions Dialog -->
+    <div id="start-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h2>MARK VII HUD SYSTEM</h2>
+        <p>Initialize Web Camera and WebGL 2.0 Engine to project photorealistic Mark VII gauntlet, custom GLSL shaders, and real-time hand computer vision tracking.</p>
+        <button id="btn-start" class="hud-btn" style="font-size: 16px; padding: 12px 30px;">INITIALIZE HUD</button>
+      </div>
+    </div>
+
+    <!-- Error Modal Dialog -->
+    <div id="error-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="border-color: var(--hud-red);">
+        <h2 style="color: var(--hud-red);">SYSTEM ERROR</h2>
+        <p id="error-message">Failed to access camera or WebGL context.</p>
+        <button id="btn-error-retry" class="hud-btn" style="border-color: var(--hud-red); color: var(--hud-red);">RETRY SYSTEM</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
